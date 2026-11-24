@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coach Séance A/B - Chrono</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Coach Séance" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230f172a'/%3E%3Ctext x='90' y='78' font-size='72' text-anchor='middle' fill='%23f97316' font-family='sans-serif' font-weight='bold'%3EA%3C/text%3E%3Ctext x='90' y='152' font-size='64' text-anchor='middle' fill='%2338bdf8' font-family='sans-serif' font-weight='bold'%3EB%3C/text%3E%3C/svg%3E" />
+    <style>
+      :root {
+        font-family: Inter, system-ui, sans-serif;
+        color: #111827;
+        background: #0f172a;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        color: #f1f5f9;
+        display: flex;
+        justify-content: center;
+        padding: 16px;
+      }
+      .app { width: 100%; max-width: 520px; }
+
+      /* Sélecteur */
+      .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+      .tab {
+        flex: 1;
+        padding: 14px;
+        border-radius: 12px;
+        border: 2px solid #334155;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .2s;
+      }
+      .tab.active { border-color: #f97316; background: #f97316; color: #0f172a; }
+
+      /* Carte exercice */
+      .card {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 12px;
+      }
+      .block-label {
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #f97316;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .ex-name { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+      .ex-detail { font-size: 15px; color: #94a3b8; margin-bottom: 16px; }
+      .timer-display {
+        font-size: 72px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+        margin: 8px 0 20px;
+        letter-spacing: 2px;
+      }
+      .timer-display.rest { color: #38bdf8; }
+      .timer-display.work { color: #22c55e; }
+      .timer-display.idle { color: #64748b; }
+      .timer-display.finished { color: #f97316; }
+
+      .btn-row { display: flex; gap: 10px; }
+      .btn {
+        flex: 1;
+        padding: 14px;
+        border-radius: 12px;
+        border: none;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform .1s;
+      }
+      .btn:active { transform: scale(.97); }
+      .btn-primary { background: #f97316; color: #0f172a; }
+      .btn-ghost { background: #334155; color: #e2e8f0; }
+      .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+      /* Progression */
+      .progress-bar {
+        height: 8px;
+        background: #334155;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 20px;
+      }
+      .progress-fill {
+        height: 100%;
+        background: #f97316;
+        border-radius: 4px;
+        transition: width .3s;
+      }
+
+      /* Liste steps */
+      .steps { list-style: none; margin-top: 16px; }
+      .step {
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 6px;
+        background: #0f172a;
+        border-left: 4px solid #334155;
+        font-size: 15px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: #94a3b8;
+      }
+      .step small { color: #64748b; }
+      .step.current {
+        border-left-color: #22c55e;
+        background: #14532d;
+        color: #f1f5f9;
+        font-weight: 600;
+      }
+      .step.done {
+        border-left-color: #475569;
+        color: #475569;
+        text-decoration: line-through;
+      }
+
+      .hint { font-size: 13px; color: #64748b; margin-top: 10px; text-align: center; }
+      .soundToggle { margin-top: 14px; text-align: center; font-size: 13px; color: #94a3b8; }
+      .soundToggle button {
+        background: none; border: none; color: #38bdf8;
+        cursor: pointer; font-size: 13px; text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="tabs">
+        <button class="tab active" id="tabA">Séance A</button>
+        <button class="tab" id="tabB">Séance B</button>
+      </div>
+
+      <div class="card">
+        <div class="block-label" id="blockLabel">Bloc 1</div>
+        <div class="ex-name" id="exName"></div>
+        <div class="ex-detail" id="exDetail"></div>
+        <div class="timer-display idle" id="timer">00:45</div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="btnPrev">&larr; Préc.</button>
+          <button class="btn btn-primary" id="btnMain">Démarrer</button>
+          <button class="btn btn-ghost" id="btnNext">Suiv. &rarr;</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="block-label">Séance</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress" style="width: 0%"></div></div>
+        <ol class="steps" id="steps"></ol>
+        <div class="hint" id="phaseHint"></div>
+        <div class="soundToggle">
+          <button id="btnSound">🔊 Bips activés</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const PROGRAMS = {
+        A: [
+          { block: "Bloc 1", name: "Squat goblet", detail: "Kettlebell au buste - 4 x 8", kind: "work" },
+          { block: "Bloc 1", name: "Pompes", detail: "4 x 8-12", kind: "work" },
+          { block: "Bloc 1", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 1", name: "Squat goblet", detail: "Série 2 - 8 reps", kind: "work" },
+          { block: "Bloc 1", name: "Pompes", detail: "Série 2 - 8-12 reps", kind: "work" },
+          { block: "Bloc 1", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 1", name: "Squat goblet", detail: "Série 3 - 8 reps", kind: "work" },
+          { block: "Bloc 1", name: "Pompes", detail: "Série 3 - 8-12 reps", kind: "work" },
+          { block: "Bloc 1", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 1", name: "Squat goblet", detail: "Série 4 - 8 reps", kind: "work" },
+          { block: "Bloc 1", name: "Pompes", detail: "Série 4 - 8-12 reps", kind: "work", lastOfPair: true },
+
+          { block: "Bloc 2", name: "Rowing kettlebell 1 bras", detail: "3 x 10 par bras", kind: "work" },
+          { block: "Bloc 2", name: "Fentes marchées", detail: "3 x 10 par jambe, kettlebell en main", kind: "work" },
+          { block: "Bloc 2", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 2", name: "Rowing kettlebell 1 bras", detail: "Série 2 - 10 par bras", kind: "work" },
+          { block: "Bloc 2", name: "Fentes marchées", detail: "Série 2 - 10 par jambe", kind: "work" },
+          { block: "Bloc 2", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 2", name: "Rowing kettlebell 1 bras", detail: "Série 3 - 10 par bras", kind: "work" },
+          { block: "Bloc 2", name: "Fentes marchées", detail: "Série 3 - 10 par jambe", kind: "work", lastOfPair: true },
+
+          { block: "Bloc 3", name: "Gainage", detail: "3 x 40 s, 20 s de repos", kind: "work" },
+          { block: "Bloc 3", name: "Élévations latérales", detail: "2 x 12-15, kettlebell ou charge légère", kind: "work" },
+          { block: "Bloc 3", name: "Séance terminée", detail: "Étirements 2 min, hydratation", kind: "done" }
+        ],
+        B: [
+          { block: "Bloc 1", name: "Swing kettlebell", detail: "4 x 10", kind: "work" },
+          { block: "Bloc 1", name: "Développé militaire", detail: "4 x 6-8 par bras", kind: "work" },
+          { block: "Bloc 1", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 1", name: "Swing kettlebell", detail: "Série 2 - 10 reps", kind: "work" },
+          { block: "Bloc 1", name: "Développé militaire", detail: "Série 2 - 6-8 par bras", kind: "work" },
+          { block: "Bloc 1", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 1", name: "Swing kettlebell", detail: "Série 3 - 10 reps", kind: "work" },
+          { block: "Bloc 1", name: "Développé militaire", detail: "Série 3 - 6-8 par bras", kind: "work" },
+          { block: "Bloc 1", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 1", name: "Swing kettlebell", detail: "Série 4 - 10 reps", kind: "work" },
+          { block: "Bloc 1", name: "Développé militaire", detail: "Série 4 - 6-8 par bras", kind: "work", lastOfPair: true },
+
+          { block: "Bloc 2", name: "Tractions / Rows kettlebell", detail: "3 x 8-10", kind: "work" },
+          { block: "Bloc 2", name: "Squats bulgares", detail: "3 x 8-10 par jambe, kettlebell", kind: "work" },
+          { block: "Bloc 2", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 2", name: "Tractions / Rows kettlebell", detail: "Série 2 - 8-10", kind: "work" },
+          { block: "Bloc 2", name: "Squats bulgares", detail: "Série 2 - 8-10 par jambe", kind: "work" },
+          { block: "Bloc 2", name: "Repos superset", detail: "45 s après la paire", kind: "rest", seconds: 45 },
+          { block: "Bloc 2", name: "Tractions / Rows kettlebell", detail: "Série 3 - 8-10", kind: "work" },
+          { block: "Bloc 2", name: "Squats bulgares", detail: "Série 3 - 8-10 par jambe", kind: "work", lastOfPair: true },
+
+          { block: "Bloc 3", name: "Gainage latéral", detail: "3 x 30 s par côté", kind: "work" },
+          { block: "Bloc 3", name: "Curl + Triceps kettlebell", detail: "Superset : 2 x 12 chacun", kind: "work" },
+          { block: "Bloc 3", name: "Séance terminée", detail: "Étirements 2 min, hydratation", kind: "done" }
+        ]
+      };
+
+      let session = "A";
+      let idx = 0;
+      let done = new Set();
+      let timerId = null;
+      let remaining = 0;
+      let running = false;
+      let soundOn = true;
+      let audioCtx = null;
+
+      const $ = (id) => document.getElementById(id);
+
+      function fmt(s) {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+      }
+
+      function currentStep() { return PROGRAMS[session][idx]; }
+
+      function beep(freq, duration) {
+        if (!soundOn) return;
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.connect(g); g.connect(audioCtx.destination);
+          o.frequency.value = freq;
+          g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+          o.start(); o.stop(audioCtx.currentTime + duration);
+        } catch (e) {}
+      }
+
+      function stopTimer(silent) {
+        if (timerId) { clearInterval(timerId); timerId = null; }
+        running = false;
+        if (!silent) render();
+      }
+
+      function startTimer() {
+        const step = currentStep();
+        if (step.kind === "done") { next(); return; }
+        if (step.kind === "rest") {
+          remaining = step.seconds;
+        } else {
+          remaining = 30; // chrono de travail libre
+        }
+        running = true;
+        beep(880, 0.15);
+        timerId = setInterval(() => {
+          remaining--;
+          if (remaining <= 3 && remaining > 0) beep(660, 0.08);
+          if (remaining <= 0) {
+            stopTimer(true);
+            beep(1000, 0.4);
+            done.add(idx);
+            render();
+            return;
+          }
+          render();
+        }, 1000);
+        render();
+      }
+
+      function next() {
+        stopTimer(true);
+        if (idx < PROGRAMS[session].length - 1) {
+          done.add(idx);
+          idx++;
+        } else {
+          done.add(idx);
+        }
+        render();
+      }
+
+      function prev() {
+        stopTimer(true);
+        if (idx > 0) { idx--; done.delete(idx); }
+        render();
+      }
+
+      function render() {
+        const step = currentStep();
+        $("tabA").classList.toggle("active", session === "A");
+        $("tabB").classList.toggle("active", session === "B");
+        $("blockLabel").textContent = step.block;
+        $("exName").textContent = step.name;
+        $("exDetail").textContent = step.detail;
+
+        const timerEl = $("timer");
+        timerEl.classList.remove("rest", "work", "idle", "finished");
+
+        if (step.kind === "done") {
+          timerEl.textContent = "TERMINÉ";
+          timerEl.classList.add("finished");
+          $("btnMain").textContent = "Recommencer";
+          $("phaseHint").textContent = "Séance terminée. Cardio zone 2 un autre jour.";
+        } else if (!running) {
+          timerEl.classList.add("idle");
+          timerEl.textContent = step.kind === "rest" ? fmt(step.seconds) : "00:30";
+          $("btnMain").textContent = "Démarrer";
+          $("phaseHint").textContent = step.kind === "rest"
+            ? "Repos : respire, prépare la paire suivante."
+            : "Fais tes reps en silence chrono, puis passe au suivant.";
+        } else {
+          timerEl.classList.add(step.kind === "rest" ? "rest" : "work");
+          timerEl.textContent = fmt(remaining);
+          $("btnMain").textContent = "Pause";
+          $("phaseHint").textContent = step.kind === "rest"
+            ? "Repos en cours..."
+            : "Chrono en cours. Reps terminées ? Clique Suivant.";
+        }
+
+        const list = PROGRAMS[session];
+        const stepsHtml = list.map((s, i) => {
+          let cls = "step";
+          if (i < idx || (i === idx && done.has(i))) cls += " done";
+          else if (i === idx) cls += " current";
+          return `<li class="${cls}"><span>${i + 1}. ${s.name}</span><small>${s.block.replace("Bloc ", "B")}</small></li>`;
+        }).join("");
+        $("steps").innerHTML = stepsHtml;
+
+        $("progress").style.width = Math.round((idx / (list.length - 1)) * 100) + "%";
+        $("btnPrev").disabled = idx === 0;
+        $("btnNext").disabled = idx === list.length - 1;
+      }
+
+      $("tabA").onclick = () => switchSession("A");
+      $("tabB").onclick = () => switchSession("B");
+
+      function switchSession(s) {
+        stopTimer(true);
+        session = s;
+        idx = 0;
+        done = new Set();
+        render();
+      }
+
+      $("btnMain").onclick = () => {
+        if (currentStep().kind === "done") { switchSession(session); return; }
+        if (running) stopTimer(); else startTimer();
+      };
+      $("btnPrev").onclick = prev;
+      $("btnNext").onclick = next;
+
+      $("btnSound").onclick = () => {
+        soundOn = !soundOn;
+        $("btnSound").textContent = soundOn ? "🔊 Bips activés" : "🔇 Bips coupés";
+      };
+
+      render();
+    </script>
+  </body>
+</html>
